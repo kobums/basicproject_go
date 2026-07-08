@@ -1,0 +1,14 @@
+version: "3"
+
+services:
+  backend:
+    restart: always
+    build: .
+    platform: linux/amd64
+    image: kobums/gowoobro_go:latest
+    ports:
+      - "8007:8007"
+    env_file:
+      - .env.yml
+    volumes:
+      - ./webdata:/usr/local/main/webdata

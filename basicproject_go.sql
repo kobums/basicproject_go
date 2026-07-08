@@ -1,0 +1,11 @@
+-- basicproject_go.sql
+-- 새 프로젝트의 데이터베이스 스키마를 여기에 작성하세요.
+
+-- 예시 테이블 구조
+-- CREATE TABLE IF NOT EXISTS `example_tb` (
+--   `ex_id` bigint NOT NULL AUTO_INCREMENT,
+--   `ex_title` varchar(100) NOT NULL,
+--   `ex_description` text,
+--   `ex_date` datetime DEFAULT CURRENT_TIMESTAMP,
+--   PRIMARY KEY (`ex_id`)
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

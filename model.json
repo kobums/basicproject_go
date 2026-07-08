@@ -1,0 +1,13 @@
+{
+  "buildtool": "1.4",
+  "database": "project",
+  "server": "140.82.12.99",
+  "user": "project",
+  "password": "projectdb",
+  "auth": "jwt",
+  "authTimeout": "not",
+  "adminLevel": "3",
+  "language": "go",
+  "goModelFilePath": "../basicproject/basicproject_go/",
+  "table": [{}]
+}

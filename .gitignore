@@ -1,0 +1,13 @@
+
+# bin file
+/bin
+
+# local env file
+# .env
+# .env.yml
+
+# model.json
+# CLAUDE.md
+# Makefile
+# .claude/*
+# webdata/*
