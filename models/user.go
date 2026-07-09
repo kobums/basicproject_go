@@ -360,6 +360,7 @@ func (p *UserManager) MakeQuery(initQuery string , postQuery string, initParams 
 
             query.WriteString(" and ")
             query.WriteString(item.Query)
+            params = append(params, item.Params...)
         }        
     }
 
@@ -784,6 +785,7 @@ func (p *UserManager) Find(args []interface{}) []User {
 
             query.WriteString(" and ")
             query.WriteString(item.Query)
+            params = append(params, item.Params...)
         case Base:
              item := v
 
@@ -918,6 +920,7 @@ func (p *UserManager) GroupBy(name string, args []interface{}) []Groupby {
 
             query.WriteString(" and ")
             query.WriteString(item.Query)
+            params = append(params, item.Params...)
         case Base:
              item := v
 

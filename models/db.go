@@ -40,6 +40,11 @@ type Where struct {
 
 type Custom struct {
 	Query string
+	// Params 는 Query 안의 ? 자리표시자에 순서대로 바인딩되는 값이다.
+	// 원시 SQL 에 사용자 입력을 직접 결합하지 말고 이 필드로 파라미터 바인딩할 것.
+	// 주의: ? 자리표시자는 MySQL/SQLite 전용이다. Where 와 달리 case Custom 은
+	// config.Database.Type 별($N) 치환을 하지 않으므로 Postgres 에서는 지원되지 않는다.
+	Params []interface{}
 }
 
 type Base struct {

@@ -5,7 +5,6 @@ package routers
 // - errorJSON: Spring ErrorResponse 와 동일한 형태의 에러 응답을 낸다.
 
 import (
-	"strings"
 	stdtime "time"
 
 	"basicproject_go/global/jwt"
@@ -17,9 +16,6 @@ const (
 	localsUserID = "authUserID"
 	localsEmail  = "authEmail"
 )
-
-// LIKE 절 원시 SQL 삽입을 막기 위해 따옴표/백슬래시/세미콜론을 제거한다.
-var stringReplacer = strings.NewReplacer("'", "", "\"", "", "\\", "", ";", "")
 
 // JwtRequired 는 인증이 필요한 라우트 앞에 붙는 미들웨어다.
 // 토큰이 없거나 유효하지 않으면 401 을 반환한다.
@@ -59,10 +55,4 @@ func validationError(c *fiber.Ctx, fields map[string]string) error {
 		"fieldErrors": fields,
 		"timestamp":   stdtime.Now().Format("2006-01-02T15:04:05"),
 	})
-}
-
-// sanitizeKeyword 는 Custom(원시 SQL) LIKE 절에 넣기 전에 위험 문자를 제거한다.
-func sanitizeKeyword(kw string) string {
-	r := stringReplacer
-	return r.Replace(kw)
 }
