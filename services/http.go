@@ -56,6 +56,10 @@ func Http() {
 	// app.Static("/webdata", config.DocumentRoot)
 	app.Static("/webdata", config.UploadPath)
 
+	// 업로드 이미지 정적 서빙: /uploads/{파일명} → {UploadPath}/uploads/{파일명}
+	// (Spring WebConfig 의 /uploads/** 매핑과 동일)
+	app.Static("/uploads", config.UploadPath+"/uploads")
+
 	router.SetRouter(app)
 
 	app.Get("/*", func(ctx *fiber.Ctx) error {

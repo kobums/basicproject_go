@@ -15,6 +15,9 @@ type AuthTokenClaims struct {
 	jwt.StandardClaims             // 표준 토큰 Claims
 }
 
+// 토큰 만료 시간(밀리초). Spring 의 app.jwt.expiration-ms 와 동일하게 1일.
+const ExpiresInMs int64 = 86400000
+
 func secretCode() []byte {
 	if config.JwtSecret == "" {
 		panic("jwtSecret is not set in .env.yml")
@@ -52,7 +55,7 @@ func MakeToken(item models.User) string {
 		User: item,
 		StandardClaims: jwt.StandardClaims{
 			IssuedAt:  jwt.At(now),
-			ExpiresAt: jwt.At(now.Add(time.Hour * 24 * 365 * 10)),
+			ExpiresAt: jwt.At(now.Add(time.Duration(ExpiresInMs) * time.Millisecond)),
 		},
 	}
 

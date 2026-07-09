@@ -1,11 +1,24 @@
 -- basicproject_go.sql
--- 새 프로젝트의 데이터베이스 스키마를 여기에 작성하세요.
+-- basicproject_springboot 와 동일한 스키마(user_tb / board_tb).
+-- 모델 매니저가 사용하는 컬럼명(u_*, b_*)에 맞춘다.
 
--- 예시 테이블 구조
--- CREATE TABLE IF NOT EXISTS `example_tb` (
---   `ex_id` bigint NOT NULL AUTO_INCREMENT,
---   `ex_title` varchar(100) NOT NULL,
---   `ex_description` text,
---   `ex_date` datetime DEFAULT CURRENT_TIMESTAMP,
---   PRIMARY KEY (`ex_id`)
--- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS `user_tb` (
+  `u_id` bigint NOT NULL AUTO_INCREMENT,
+  `u_email` varchar(255) NOT NULL,
+  `u_name` varchar(100) DEFAULT NULL,
+  `u_passwd` varchar(255) NOT NULL,
+  `u_date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`u_id`),
+  UNIQUE KEY `uk_user_email` (`u_email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `board_tb` (
+  `b_id` bigint NOT NULL AUTO_INCREMENT,
+  `b_title` varchar(200) NOT NULL,
+  `b_content` text,
+  `b_img` varchar(255) NOT NULL DEFAULT '',
+  `b_user` bigint NOT NULL,
+  `b_date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`b_id`),
+  KEY `idx_board_user` (`b_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
