@@ -2,9 +2,12 @@
 # bin file
 /bin
 
-# local env file
-# .env
-# .env.yml
+# local env file (시크릿 포함 — 커밋 금지)
+.env
+.env.yml
+
+# runtime logs (bcrypt 해시·쿼리 등 민감 데이터 포함 가능)
+webdata/log/*.log
 
 # model.json
 # CLAUDE.md
