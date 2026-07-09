@@ -1,8 +1,0 @@
-{"level":"info","Version":"1.0.0","Mode":"develop","time":"2026-07-08T22:31:18+09:00","message":"Start"}
-{"level":"info","model":"setting","time":"2026-07-08T22:31:18+09:00","message":"Cache Init"}
-{"level":"info","service":"HTTP","time":"2026-07-08T22:31:18+09:00","message":"Start Service"}
-{"level":"info","time":"2026-07-08T22:31:24+09:00","message":"Gracefully shutting down..."}
-{"level":"info","Version":"1.0.0","Mode":"develop","time":"2026-07-08T22:31:26+09:00","message":"Start"}
-{"level":"info","model":"setting","time":"2026-07-08T22:31:26+09:00","message":"Cache Init"}
-{"level":"info","service":"HTTP","time":"2026-07-08T22:31:26+09:00","message":"Start Service"}
-{"level":"info","time":"2026-07-08T22:31:27+09:00","message":"Gracefully shutting down..."}

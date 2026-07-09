@@ -33,18 +33,13 @@ func getArrayCommai(name string) []int {
 }
 
 func SetRouter(r *fiber.App) {
-
-    // r.Get("/api/jwt", func(c *fiber.Ctx) error {
-	// 	loginid := c.Query("loginid")
-    //     passwd := c.Query("passwd")
-    //     return c.JSON(JwtAuth(c, loginid, passwd))
-	// })
-
 	apiGroup := r.Group("/api")
 
-	// apiGroup.Use(JwtAuthRequired)
-
-
-	// Setup domain-specific routes
+	// Spring 에서 이식한 도메인 라우트.
+	// 인증(JwtRequired)은 각 라우트에서 개별로 건다: 조회(GET)는 공개,
+	// 생성·수정·삭제와 /auth/me 는 인증 필요.
+	routers.SetupAuthRoutes(apiGroup)
+	routers.SetupBoardsRoutes(apiGroup)
+	routers.SetupUsersRoutes(apiGroup)
 	routers.SetupUploadRoutes(apiGroup)
 }
