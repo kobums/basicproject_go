@@ -232,7 +232,8 @@ func Init() {
 	Log.Level = "debug"
 	Log.Console = true
 	Log.Web = true
-	Log.Database = true
+	// Log.Database(SQL 파라미터 디버그 로깅)는 강제하지 않는다. 활성화 시 bcrypt 해시 등
+	// 민감한 파라미터가 로그 파일에 기록되므로, .env.yml(log.database) / LOG_DATABASE=Y 로만 opt-in 한다.
 	Log.File = "webdata/log/system.log"
 	envDBType := os.Getenv("DB_TYPE")
 	envDBHost := os.Getenv("DB_HOST")

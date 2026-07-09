@@ -21,6 +21,18 @@ func UserFrom(u *models.User) UserResponse {
 	return UserResponse{Id: u.Id, Email: u.Email, Name: u.Name, CreatedAt: u.Date}
 }
 
+// user_tb 공개 응답 (이메일 제외). 목록/단건 등 비인증 공개 엔드포인트에서 사용.
+// 익명 사용자가 이메일을 대량 수집(크롤링·계정 열거)하지 못하도록 PII(email)를 노출하지 않는다.
+type UserSummary struct {
+	Id        int64  `json:"id"`
+	Name      string `json:"name"`
+	CreatedAt string `json:"createdAt"`
+}
+
+func UserSummaryFrom(u *models.User) UserSummary {
+	return UserSummary{Id: u.Id, Name: u.Name, CreatedAt: u.Date}
+}
+
 // 게시글 작성자 요약 (user_tb 조인 결과). Spring BoardResponse.Author 대응.
 type Author struct {
 	Id   int64  `json:"id"`

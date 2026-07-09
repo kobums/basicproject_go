@@ -1,8 +1,8 @@
 package routers
 
 // Spring UserController / UserService 를 옮긴 사용자 라우트.
-//   GET    /api/users        목록(keyword: 이름/이메일 검색) — 공개
-//   GET    /api/users/:id    단건 조회 — 공개
+//   GET    /api/users        목록(keyword: 이름 검색) — 공개, 이메일 미노출
+//   GET    /api/users/:id    단건 조회 — 공개, 이메일 미노출
 //   POST   /api/users        생성 — 인증 필요
 //   PUT    /api/users/:id    수정(본인만) — 인증 필요
 //   DELETE /api/users/:id    삭제(본인만) — 인증 필요
@@ -48,11 +48,10 @@ func handleUserList(c *fiber.Ctx) error {
 	defer conn.Close()
 	manager := models.NewUserManager(conn)
 
+	// 공개 엔드포인트이므로 이메일은 검색 대상에서 제외한다(이메일 열거 방지).
 	var where []interface{}
 	if kw := strings.TrimSpace(c.Query("keyword")); kw != "" {
-		s := sanitizeKeyword(kw)
-		q := "(u_name like '%" + s + "%' or u_email like '%" + s + "%')"
-		where = []interface{}{models.Custom{Query: q}}
+		where = []interface{}{models.Where{Column: "name", Value: kw, Compare: "like"}}
 	}
 
 	total := manager.Count(where)
@@ -61,9 +60,9 @@ func handleUserList(c *fiber.Ctx) error {
 	args = append(args, models.Paging(page+1, size), models.Ordering("id desc"))
 	users := manager.Find(args)
 
-	content := make([]dto.UserResponse, 0, len(users))
+	content := make([]dto.UserSummary, 0, len(users))
 	for i := range users {
-		content = append(content, dto.UserFrom(&users[i]))
+		content = append(content, dto.UserSummaryFrom(&users[i]))
 	}
 	return c.JSON(dto.NewPage(content, page, size, total))
 }
@@ -79,7 +78,7 @@ func handleUserGet(c *fiber.Ctx) error {
 	if user == nil {
 		return errorJSON(c, fiber.StatusNotFound, "user not found: "+c.Params("id"))
 	}
-	return c.JSON(dto.UserFrom(user))
+	return c.JSON(dto.UserSummaryFrom(user))
 }
 
 func handleUserCreate(c *fiber.Ctx) error {
