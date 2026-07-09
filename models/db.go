@@ -40,6 +40,9 @@ type Where struct {
 
 type Custom struct {
 	Query string
+	// Params 는 Query 안의 ? 자리표시자에 순서대로 바인딩되는 값이다.
+	// 원시 SQL 에 사용자 입력을 직접 결합하지 말고 이 필드로 파라미터 바인딩할 것.
+	Params []interface{}
 }
 
 type Base struct {

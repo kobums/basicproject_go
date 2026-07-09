@@ -340,6 +340,7 @@ func (p *BoardManager) MakeQuery(initQuery string , postQuery string, initParams
 
             query.WriteString(" and ")
             query.WriteString(item.Query)
+            params = append(params, item.Params...)
         }        
     }
 
@@ -784,6 +785,7 @@ func (p *BoardManager) Find(args []interface{}) []Board {
 
             query.WriteString(" and ")
             query.WriteString(item.Query)
+            params = append(params, item.Params...)
         case Base:
              item := v
 
@@ -918,6 +920,7 @@ func (p *BoardManager) GroupBy(name string, args []interface{}) []Groupby {
 
             query.WriteString(" and ")
             query.WriteString(item.Query)
+            params = append(params, item.Params...)
         case Base:
              item := v
 

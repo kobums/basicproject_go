@@ -178,9 +178,11 @@ func boardSearchArgs(conn *models.Connection, searchType, keyword string) ([]int
 	case "content":
 		return []interface{}{models.Where{Column: "content", Value: kw, Compare: "like"}}, true
 	case "all":
-		s := sanitizeKeyword(kw)
-		q := "(b_title like '%" + s + "%' or b_content like '%" + s + "%')"
-		return []interface{}{models.Custom{Query: q}}, true
+		like := "%" + kw + "%"
+		return []interface{}{models.Custom{
+			Query:  "(b_title like ? or b_content like ?)",
+			Params: []interface{}{like, like},
+		}}, true
 	case "author":
 		ids := userIDsByName(conn, kw)
 		if len(ids) == 0 {
