@@ -45,10 +45,6 @@ func (c *UserController) Index(page int, pagesize int) {
         args = append(args, models.Where{Column:"name", Value:_name, Compare:"="})
         
     }
-    _passwd := c.Get("passwd")
-    if _passwd != "" {
-        args = append(args, models.Where{Column:"passwd", Value:_passwd, Compare:"like"})
-    }
     _startdate := c.Get("startdate")
     _enddate := c.Get("enddate")
     if _startdate != "" && _enddate != "" {        
@@ -124,11 +120,6 @@ func (c *UserController) Count() {
     if _name != "" {
         args = append(args, models.Where{Column:"name", Value:_name, Compare:"="})
         
-        
-    }
-    _passwd := c.Get("passwd")
-    if _passwd != "" {
-        args = append(args, models.Where{Column:"passwd", Value:_passwd, Compare:"like"})
         
     }
     _startdate := c.Get("startdate")
