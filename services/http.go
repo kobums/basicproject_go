@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path"
 	"strings"
 	"syscall"
 
@@ -54,7 +55,11 @@ func Http() {
 
 
 	// app.Static("/webdata", config.DocumentRoot)
-	app.Static("/webdata", config.UploadPath)
+	// 로그 디렉터리(webdata/log)는 SQL 파라미터 등 민감정보가, certs 는 TLS 개인키가 들어갈 수 있으므로
+	// 정적 서빙에서 제외한다.
+	app.Static("/webdata", config.UploadPath, fiber.Static{
+		Next: isHiddenStatic,
+	})
 
 	// 업로드 이미지 정적 서빙: /uploads/{파일명} → {UploadPath}/uploads/{파일명}
 	// (Spring WebConfig 의 /uploads/** 매핑과 동일)
@@ -101,4 +106,17 @@ func Http() {
 			log.Error().Msg(err.Error())
 		}
 	}
+}
+
+// isHiddenStatic 은 /webdata 정적 서빙에서 숨길 경로인지 판단한다.
+// c.Path() 는 퍼센트 인코딩이 풀리지 않은 원본 경로라 "/webdata/%6cog/..." 처럼 우회할 수 있으므로,
+// 실제 파일 조회에 쓰이는 fasthttp 의 디코딩·정규화된 경로로 판단한다. (대소문자 무시 파일시스템 대비 소문자 비교)
+func isHiddenStatic(c *fiber.Ctx) bool {
+	p := strings.ToLower(path.Clean("/" + string(c.Context().Path())))
+	for _, dir := range []string{"/webdata/log", "/webdata/certs"} {
+		if p == dir || strings.HasPrefix(p, dir+"/") {
+			return true
+		}
+	}
+	return false
 }

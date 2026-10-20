@@ -6,6 +6,7 @@ import (
 	"basicproject_go/global/jwt"
 	"basicproject_go/models"
 
+    "regexp"
     "strings"
 )
 
@@ -43,10 +44,6 @@ func (c *UserController) Index(page int, pagesize int) {
     if _name != "" {
         args = append(args, models.Where{Column:"name", Value:_name, Compare:"="})
         
-    }
-    _passwd := c.Get("passwd")
-    if _passwd != "" {
-        args = append(args, models.Where{Column:"passwd", Value:_passwd, Compare:"like"})
     }
     _startdate := c.Get("startdate")
     _enddate := c.Get("enddate")
@@ -90,7 +87,10 @@ func (c *UserController) Index(page int, pagesize int) {
             }
         }
         
-        args = append(args, models.Ordering(str))
+        // orderby 는 ORDER BY 절에 그대로 들어가므로 "컬럼 [asc|desc]" 목록 형태만 허용한다 (SQL injection 방지).
+        if regexp.MustCompile(`^\s*[A-Za-z0-9_]+(\s+(?i:asc|desc))?\s*(,\s*[A-Za-z0-9_]+(\s+(?i:asc|desc))?\s*)*$`).MatchString(orderby) {
+        	args = append(args, models.Ordering(str))
+        }
     }
     
 	items := manager.Find(args)
@@ -120,11 +120,6 @@ func (c *UserController) Count() {
     if _name != "" {
         args = append(args, models.Where{Column:"name", Value:_name, Compare:"="})
         
-        
-    }
-    _passwd := c.Get("passwd")
-    if _passwd != "" {
-        args = append(args, models.Where{Column:"passwd", Value:_passwd, Compare:"like"})
         
     }
     _startdate := c.Get("startdate")

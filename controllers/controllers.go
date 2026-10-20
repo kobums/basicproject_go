@@ -8,8 +8,10 @@ import (
 	"basicproject_go/global/config"
 	"basicproject_go/global/log"
 	"basicproject_go/global/time"
+	"basicproject_go/global/upload"
 	"basicproject_go/models"
 
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -310,25 +312,34 @@ func (c *Controller) Paging(page int, totalRows int, pageSize int) {
 	c.Set("currentBlock", currentBlock)
 }
 
-func (c *Controller) GetUpload(uploadPath string, name string) (string, string) {
+// GetUpload 는 multipart 필드 name 의 파일을 이미지로 검증한 뒤 {UploadPath}/{uploadPath} 아래에
+// 서버가 만든 이름(시각_UUID.확장자)으로 저장한다. 확장자는 실제 내용 기준(upload.ValidateImage)이며
+// 원본 파일명은 저장 경로에 쓰지 않는다. 반환값: (원본 파일명, 저장 경로, 에러)
+func (c *Controller) GetUpload(uploadPath string, name string) (string, string, error) {
 	file, err := c.Context.FormFile(name)
 
 	if err != nil {
 		log.Println(err)
-		return "", ""
+		return "", "", errors.New("업로드할 파일이 없습니다.")
+	}
+
+	ext, err := upload.ValidateImage(file)
+	if err != nil {
+		return "", "", err
 	}
 
 	t := time.Now()
 
-	filename := fmt.Sprintf("%v/%04d%02d%02d%02d%02d%02d_%v%v", uploadPath, t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), strings.Replace(global.UUID(), "-", "", -1), filepath.Ext(file.Filename))
+	filename := fmt.Sprintf("%v/%04d%02d%02d%02d%02d%02d_%v%v", uploadPath, t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), strings.Replace(global.UUID(), "-", "", -1), ext)
 	fullFilename := path.Join(config.UploadPath, filename)
 
 	err = c.Context.SaveFile(file, fullFilename)
 	if err != nil {
-		return "", ""
+		log.Println(err)
+		return "", "", errors.New("파일 저장에 실패했습니다.")
 	}
 
-	return file.Filename, filename
+	return filepath.Base(file.Filename), filename, nil
 }
 
 func (c *Controller) GetUploadWithFilename(uploadPath string, name string) error {
