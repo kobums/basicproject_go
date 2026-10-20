@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path"
 	"strings"
 	"syscall"
 
@@ -54,7 +55,12 @@ func Http() {
 
 
 	// app.Static("/webdata", config.DocumentRoot)
-	app.Static("/webdata", config.UploadPath)
+	// 로그 디렉터리(webdata/log)는 SQL 파라미터 등 민감정보가 포함될 수 있으므로 정적 서빙에서 제외한다.
+	app.Static("/webdata", config.UploadPath, fiber.Static{
+		Next: func(c *fiber.Ctx) bool {
+			return strings.HasPrefix(path.Clean(c.Path()), "/webdata/log")
+		},
+	})
 
 	// 업로드 이미지 정적 서빙: /uploads/{파일명} → {UploadPath}/uploads/{파일명}
 	// (Spring WebConfig 의 /uploads/** 매핑과 동일)

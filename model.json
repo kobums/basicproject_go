@@ -3,7 +3,7 @@
   "database": "project",
   "server": "140.82.12.99",
   "user": "project",
-  "password": "projectdb",
+  "password": "",
   "auth": "jwt",
   "authTimeout": "not",
   "adminLevel": "3",
