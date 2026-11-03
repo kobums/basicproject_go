@@ -17,7 +17,7 @@ GENERATED_DIRS := models controllers/rest router/routers
 all: build
 
 # DB(information_schema)를 읽어 model.json 의 테이블 코드를 다시 만든다. make db-up 이 먼저 필요하다.
-# 생성 파일은 gofmt 로 정리한다 (다시 만들어도 diff 가 없다).
+# gomachine 이 생성 파일을 gofmt 해서 쓴다 (다시 만들어도 diff 가 없다). gofmt 는 예전 gomachine 대비 안전장치다.
 gen:
 	$(BUILDTOOL) . go
 	gofmt -w $(GENERATED_DIRS)

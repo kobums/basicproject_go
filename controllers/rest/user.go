@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 type UserController struct {
@@ -39,8 +40,13 @@ func (c *UserController) isAdmin() bool {
 }
 
 func (c *UserController) Read(id int64) {
-
 	if c.Session == nil {
+		c.Result["code"] = "auth error"
+		return
+	}
+
+	// 회원 정보는 본인 행만 읽을 수 있다 (관리자 제외).
+	if !c.isAdmin() && id != c.Session.Id {
 		c.Result["code"] = "auth error"
 		return
 	}
@@ -67,12 +73,13 @@ func ParseUserFilters(get func(string) string) ([]interface{}, string) {
 
 	_email := get("email")
 	if _email != "" {
-		args = append(args, models.Where{Column: "email", Value: _email, Compare: "like"})
+		// 부분 일치: %, _, ! 는 ! 로 escape 한다.
+		args = append(args, models.Custom{Query: "u_email like ? escape '!'", Params: []interface{}{likeUserPattern(_email)}})
 	}
 	_name := get("name")
 	if _name != "" {
-		args = append(args, models.Where{Column: "name", Value: _name, Compare: "="})
-
+		// 부분 일치: %, _, ! 는 ! 로 escape 한다.
+		args = append(args, models.Custom{Query: "u_name like ? escape '!'", Params: []interface{}{likeUserPattern(_name)}})
 	}
 	if s := get("level"); s != "" {
 		v, err := strconv.Atoi(s)
@@ -99,6 +106,11 @@ func ParseUserFilters(get func(string) string) ([]interface{}, string) {
 	return args, ""
 }
 
+// likeUserPattern 은 목록 필터의 부분 일치 패턴이다 (%값%, %, _, ! 는 ! 로 escape, SQL 은 escape '!').
+func likeUserPattern(v string) string {
+	return "%" + strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(v) + "%"
+}
+
 // filters 는 ParseUserFilters 에 세션 조건을 더한다. 세션이 있으면 현재 사용자 소유 행만 고른다.
 // 파라미터를 해석하지 못하면 code "bad request" 를 넣고 false 를 돌려준다.
 func (c *UserController) filters() ([]interface{}, bool) {
@@ -109,13 +121,17 @@ func (c *UserController) filters() ([]interface{}, bool) {
 		return nil, false
 	}
 
+	// 회원 정보는 본인 행만 (관리자는 모든 행).
+	if !c.isAdmin() {
+		args = append(args, models.Where{Column: "id", Value: c.Session.Id, Compare: "="})
+	}
+
 	return args, true
 }
 
 // Search 는 GET /{table}/search/{field} 다. column(라우터가 넣는 이 테이블 컬럼)이 value 와 같은 행 목록을 items 로 돌려준다.
 // 세션이 있으면 현재 사용자 소유 행만 고른다. 비밀번호/[]byte 컬럼은 라우터가 경로를 만들지 않는다.
 func (c *UserController) Search(column string, value interface{}) {
-
 	if c.Session == nil {
 		c.Result["code"] = "auth error"
 		return
@@ -126,6 +142,10 @@ func (c *UserController) Search(column string, value interface{}) {
 	manager := models.NewUserManager(conn)
 
 	args := []interface{}{models.Where{Column: column, Value: value, Compare: "="}}
+
+	if !c.isAdmin() {
+		args = append(args, models.Where{Column: "id", Value: c.Session.Id, Compare: "="})
+	}
 
 	items := manager.Find(args)
 	if len(items) == 0 && manager.LastError != nil {
@@ -144,7 +164,6 @@ func (c *UserController) Index(page int, pagesize int) {
 	if pagesize > 10000 {
 		pagesize = 10000
 	}
-
 	if c.Session == nil {
 		c.Result["code"] = "auth error"
 		return
@@ -199,7 +218,6 @@ func (c *UserController) Index(page int, pagesize int) {
 }
 
 func (c *UserController) Count() {
-
 	if c.Session == nil {
 		c.Result["code"] = "auth error"
 		return
@@ -232,9 +250,9 @@ func (c *UserController) Insert(item *models.UserUpdate) {
 	// createddate 는 서버가 현재 시각으로 넣는다. 클라이언트가 보낸 값은 무시한다.
 	item.Createddate = ""
 
-	// 보호 컬럼은 클라이언트 값을 받지 않는다.
+	// 보호 컬럼은 클라이언트 값을 받지 않는다 (DB 기본값, 없으면 0 값).
 	if !c.isAdmin() {
-		item.Level = models.UserUpdate{}.Level
+		item.Level = 1
 	}
 
 	if item.Passwd != "" {
@@ -286,7 +304,7 @@ func (c *UserController) Insertbatch(item *[]models.UserUpdate) {
 
 		// 보호 컬럼은 클라이언트 값을 받지 않는다.
 		if !c.isAdmin() {
-			(*item)[i].Level = models.UserUpdate{}.Level
+			(*item)[i].Level = 1
 		}
 
 		if (*item)[i].Passwd != "" {

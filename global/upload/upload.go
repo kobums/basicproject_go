@@ -5,6 +5,7 @@ package upload
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -30,6 +31,10 @@ var allowedType = map[string]string{"image/jpeg": ".jpg", "image/png": ".png", "
 // 이미지에는 더 엄격한 상한을 둬 대용량 반복 업로드로 인한 디스크 고갈(DoS)을 막는다.
 const MaxImageSize = 5 << 20
 
+// ErrInvalidImage 는 클라이언트가 보낸 파일이 허용된 이미지가 아닐 때의 에러다 (HTTP 400).
+// StoreImage 의 다른 에러(디렉터리 / 저장 실패)는 서버 에러다.
+var ErrInvalidImage = errors.New("invalid image")
+
 // Root 는 업로드 파일이 저장되는 실제 디렉터리.
 func Root() string {
 	return path.Join(config.UploadPath, "uploads")
@@ -45,7 +50,7 @@ func StoreImage(c *fiber.Ctx, field string) (string, error) {
 
 	ext, err := ValidateImage(file)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%w: %v", ErrInvalidImage, err)
 	}
 
 	dir := Root()

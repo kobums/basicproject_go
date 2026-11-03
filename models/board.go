@@ -182,13 +182,16 @@ func (p *BoardManager) GetQuery() string {
 
 	var ret strings.Builder
 
-	ret.WriteString("select b_id, b_title, b_content, b_img, b_user, b_createddate from board_tb")
+	ret.WriteString("select board_tb.b_id, board_tb.b_title, board_tb.b_content, board_tb.b_img, board_tb.b_user, board_tb.b_createddate, user_tb.u_id, user_tb.u_email, user_tb.u_passwd, user_tb.u_name, user_tb.u_level, user_tb.u_createddate from board_tb")
 
 	if p.Index != "" {
 		ret.WriteString(" use index(")
 		ret.WriteString(p.Index)
 		ret.WriteString(")")
 	}
+
+	// 조인 테이블은 left join 이다 (조인 키가 NULL 이거나 조인 행이 없어도 이 테이블의 행은 나온다).
+	ret.WriteString(" left join user_tb on board_tb.b_user = user_tb.u_id")
 
 	if p.JoinQuery != "" {
 		ret.WriteString(", ")
@@ -216,6 +219,8 @@ func (p *BoardManager) GetQuerySelect() string {
 		ret.WriteString(")")
 	}
 
+	ret.WriteString(" left join user_tb on board_tb.b_user = user_tb.u_id")
+
 	if p.JoinQuery != "" {
 		ret.WriteString(", ")
 		ret.WriteString(p.JoinQuery)
@@ -241,6 +246,8 @@ func (p *BoardManager) GetQueryGroup(name string) string {
 		ret.WriteString(p.Index)
 		ret.WriteString(")")
 	}
+
+	ret.WriteString(" left join user_tb on board_tb.b_user = user_tb.u_id")
 
 	ret.WriteString(" where 1=1 ")
 
@@ -531,14 +538,28 @@ func (p *BoardManager) ReadRow(rows *sql.Rows) *Board {
 	var item Board
 	var err error
 
+	var _user User
+
 	// null 허용 컬럼(과 조인 컬럼)은 sql.Null* 로 읽어 0 값으로 바꾼다.
 	var n_Content sql.NullString
 	var n_Img sql.NullString
+	var n_user_Id sql.NullInt64
+	var n_user_Email sql.NullString
+	var n_user_Passwd sql.NullString
+	var n_user_Name sql.NullString
+	var n_user_Level sql.NullInt64
+	var n_user_Createddate sql.NullString
 
 	if rows.Next() {
-		err = rows.Scan(&item.Id, &item.Title, &n_Content, &n_Img, &item.User, &item.Createddate)
+		err = rows.Scan(&item.Id, &item.Title, &n_Content, &n_Img, &item.User, &item.Createddate, &n_user_Id, &n_user_Email, &n_user_Passwd, &n_user_Name, &n_user_Level, &n_user_Createddate)
 		item.Content = n_Content.String
 		item.Img = n_Img.String
+		_user.Id = n_user_Id.Int64
+		_user.Email = n_user_Email.String
+		_user.Passwd = n_user_Passwd.String
+		_user.Name = n_user_Name.String
+		_user.Level = int(n_user_Level.Int64)
+		_user.Createddate = n_user_Createddate.String
 
 		if item.Createddate == "0000-00-00 00:00:00" || item.Createddate == "1000-01-01 00:00:00" || item.Createddate == "9999-01-01 00:00:00" || item.Createddate == "0000-00-00" || item.Createddate == "1000-01-01" {
 			item.Createddate = ""
@@ -563,6 +584,12 @@ func (p *BoardManager) ReadRow(rows *sql.Rows) *Board {
 	} else {
 
 		item.InitExtra()
+		if n_user_Id.Valid {
+			_user.InitExtra()
+			item.AddExtra("user", _user)
+		} else {
+			item.AddExtra("user", nil)
+		}
 
 		return &item
 	}
@@ -573,12 +600,19 @@ func (p *BoardManager) ReadRows(rows *sql.Rows) []Board {
 
 	for rows.Next() {
 		var item Board
+		var _user User
 
 		// null 허용 컬럼은 sql.Null* 로 읽어 0 값으로 바꾼다.
 		var n_Content sql.NullString
 		var n_Img sql.NullString
+		var n_user_Id sql.NullInt64
+		var n_user_Email sql.NullString
+		var n_user_Passwd sql.NullString
+		var n_user_Name sql.NullString
+		var n_user_Level sql.NullInt64
+		var n_user_Createddate sql.NullString
 
-		err := rows.Scan(&item.Id, &item.Title, &n_Content, &n_Img, &item.User, &item.Createddate)
+		err := rows.Scan(&item.Id, &item.Title, &n_Content, &n_Img, &item.User, &item.Createddate, &n_user_Id, &n_user_Email, &n_user_Passwd, &n_user_Name, &n_user_Level, &n_user_Createddate)
 		if err != nil {
 			// 한 행을 읽지 못해도 나머지 행은 계속 읽는다 (예전에는 여기서 멈춰 뒤의 행이 조용히 빠졌다).
 			p.LastError = err
@@ -587,6 +621,12 @@ func (p *BoardManager) ReadRows(rows *sql.Rows) []Board {
 		}
 		item.Content = n_Content.String
 		item.Img = n_Img.String
+		_user.Id = n_user_Id.Int64
+		_user.Email = n_user_Email.String
+		_user.Passwd = n_user_Passwd.String
+		_user.Name = n_user_Name.String
+		_user.Level = int(n_user_Level.Int64)
+		_user.Createddate = n_user_Createddate.String
 
 		if item.Createddate == "0000-00-00 00:00:00" || item.Createddate == "1000-01-01 00:00:00" || item.Createddate == "9999-01-01 00:00:00" || item.Createddate == "0000-00-00" || item.Createddate == "1000-01-01" {
 			item.Createddate = ""
@@ -597,6 +637,12 @@ func (p *BoardManager) ReadRows(rows *sql.Rows) []Board {
 		}
 
 		item.InitExtra()
+		if n_user_Id.Valid {
+			_user.InitExtra()
+			item.AddExtra("user", _user)
+		} else {
+			item.AddExtra("user", nil)
+		}
 
 		items = append(items, item)
 	}

@@ -17,15 +17,18 @@ import (
 
 const testOrigin = "http://localhost:5173"
 
-// newTestApp 는 DB 없이 앱을 만든다. DB 풀은 첫 쿼리 때 열리고, 닫힌 포트를 가리키므로 쿼리는 바로 실패한다.
+// newTestApp 는 DB 없이 앱을 만든다. DB 풀은 standin 드라이버(standin_test.go)이고, 결과를 정하지 않으면
+// 모든 쿼리가 실패한다 (DB 가 없는 것과 같다). 업로드 경로는 테스트 임시 디렉터리다.
 func newTestApp(t *testing.T) *fiber.App {
 	t.Helper()
 	config.JwtSecret = "0123456789abcdef0123456789abcdef"
 	config.JwtExpiration = config.DefaultJwtExpiration
-	config.Database.TypeString = "mysql"
-	config.Database.ConnectionString = "u:p@tcp(127.0.0.1:1)/x?timeout=1s"
+	config.Database.TypeString = standinDriver
+	config.Database.ConnectionString = ""
 	config.Cors = []string{testOrigin}
 	config.Log.Web = false
+	config.UploadPath = t.TempDir()
+	standinReset(nil)
 	return NewApp()
 }
 
@@ -71,9 +74,9 @@ func TestAuthRoutes(t *testing.T) {
 		t.Errorf("signup fieldErrors = %v", body["fieldErrors"])
 	}
 
-	status, _, _ = do(t, app, "POST", "/api/auth/login", `{}`, nil)
-	if status != 400 {
-		t.Errorf("login without credentials = %d", status)
+	status, body, _ = do(t, app, "POST", "/api/auth/login", `{}`, nil)
+	if status != 401 || body["status"] != float64(401) || body["message"] == nil || body["fieldErrors"] != nil {
+		t.Errorf("login without credentials = %d %v, want 401 {status, message}", status, body)
 	}
 
 	status, _, _ = do(t, app, "GET", "/api/auth/me", "", nil)

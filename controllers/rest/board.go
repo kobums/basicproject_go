@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 
 	"strconv"
+	"strings"
 )
 
 type BoardController struct {
@@ -17,13 +18,7 @@ type BoardController struct {
 }
 
 func (c *BoardController) Read(id int64) {
-
 	if c.Session == nil {
-		c.Result["code"] = "auth error"
-		return
-	}
-
-	if c.Session.Id == 0 {
 		c.Result["code"] = "auth error"
 		return
 	}
@@ -39,17 +34,6 @@ func (c *BoardController) Read(id int64) {
 		return
 	}
 
-	// 없는 행이면 세션 비교 전에 에러로 돌려준다 (nil 역참조 방지).
-	if item == nil {
-		c.Result["code"] = "error"
-		return
-	}
-
-	if item.User != int64(c.Session.Id) {
-		c.Result["code"] = "auth error"
-		return
-	}
-
 	c.Set("item", item)
 }
 
@@ -61,17 +45,18 @@ func ParseBoardFilters(get func(string) string) ([]interface{}, string) {
 
 	_title := get("title")
 	if _title != "" {
-		args = append(args, models.Where{Column: "title", Value: _title, Compare: "="})
-
+		// 부분 일치: %, _, ! 는 ! 로 escape 한다.
+		args = append(args, models.Custom{Query: "b_title like ? escape '!'", Params: []interface{}{likeBoardPattern(_title)}})
 	}
 	_content := get("content")
 	if _content != "" {
-		args = append(args, models.Where{Column: "content", Value: _content, Compare: "="})
-
+		// 부분 일치: %, _, ! 는 ! 로 escape 한다.
+		args = append(args, models.Custom{Query: "b_content like ? escape '!'", Params: []interface{}{likeBoardPattern(_content)}})
 	}
 	_img := get("img")
 	if _img != "" {
-		args = append(args, models.Where{Column: "img", Value: _img, Compare: "like"})
+		// 부분 일치: %, _, ! 는 ! 로 escape 한다.
+		args = append(args, models.Custom{Query: "b_img like ? escape '!'", Params: []interface{}{likeBoardPattern(_img)}})
 	}
 	if s := get("user"); s != "" {
 		v, err := strconv.ParseInt(s, 10, 64)
@@ -98,6 +83,11 @@ func ParseBoardFilters(get func(string) string) ([]interface{}, string) {
 	return args, ""
 }
 
+// likeBoardPattern 은 목록 필터의 부분 일치 패턴이다 (%값%, %, _, ! 는 ! 로 escape, SQL 은 escape '!').
+func likeBoardPattern(v string) string {
+	return "%" + strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(v) + "%"
+}
+
 // filters 는 ParseBoardFilters 에 세션 조건을 더한다. 세션이 있으면 현재 사용자 소유 행만 고른다.
 // 파라미터를 해석하지 못하면 code "bad request" 를 넣고 false 를 돌려준다.
 func (c *BoardController) filters() ([]interface{}, bool) {
@@ -108,21 +98,13 @@ func (c *BoardController) filters() ([]interface{}, bool) {
 		return nil, false
 	}
 
-	args = append(args, models.Where{Column: "user", Value: c.Session.Id, Compare: "="})
-
 	return args, true
 }
 
 // Search 는 GET /{table}/search/{field} 다. column(라우터가 넣는 이 테이블 컬럼)이 value 와 같은 행 목록을 items 로 돌려준다.
 // 세션이 있으면 현재 사용자 소유 행만 고른다. 비밀번호/[]byte 컬럼은 라우터가 경로를 만들지 않는다.
 func (c *BoardController) Search(column string, value interface{}) {
-
 	if c.Session == nil {
-		c.Result["code"] = "auth error"
-		return
-	}
-
-	if c.Session.Id == 0 {
 		c.Result["code"] = "auth error"
 		return
 	}
@@ -132,8 +114,6 @@ func (c *BoardController) Search(column string, value interface{}) {
 	manager := models.NewBoardManager(conn)
 
 	args := []interface{}{models.Where{Column: column, Value: value, Compare: "="}}
-
-	args = append(args, models.Where{Column: "user", Value: c.Session.Id, Compare: "="})
 
 	items := manager.Find(args)
 	if len(items) == 0 && manager.LastError != nil {
@@ -152,13 +132,7 @@ func (c *BoardController) Index(page int, pagesize int) {
 	if pagesize > 10000 {
 		pagesize = 10000
 	}
-
 	if c.Session == nil {
-		c.Result["code"] = "auth error"
-		return
-	}
-
-	if c.Session.Id == 0 {
 		c.Result["code"] = "auth error"
 		return
 	}
@@ -212,13 +186,7 @@ func (c *BoardController) Index(page int, pagesize int) {
 }
 
 func (c *BoardController) Count() {
-
 	if c.Session == nil {
-		c.Result["code"] = "auth error"
-		return
-	}
-
-	if c.Session.Id == 0 {
 		c.Result["code"] = "auth error"
 		return
 	}
