@@ -6,6 +6,7 @@ import (
 
 	"basicproject_go/global"
 	"basicproject_go/global/config"
+	"basicproject_go/global/jwt"
 	"basicproject_go/global/log"
 	"basicproject_go/global/time"
 	"basicproject_go/global/upload"
@@ -23,7 +24,18 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// Session 은 gomachine 생성 컨트롤러가 읽는 로그인 사용자 정보다 (Go Session 계약).
+// 통일 JWT 의 id / email / level claim 과 같다. Level 이 model.json adminLevel 이상이면 관리자다.
+type Session struct {
+	Id    int64
+	Email string
+	Level int
+}
+
 type Controller struct {
+	// Session 은 Authorization: Bearer 토큰이 유효할 때만 채워진다. 비로그인 / 무효 토큰이면 nil.
+	Session *Session
+
 	Context    *fiber.Ctx
 	Result     map[string]interface{}
 	Connection *models.Connection
@@ -49,11 +61,24 @@ func (c *Controller) Init(g *fiber.Ctx) {
 	c.Result = make(map[string]interface{})
 	c.Result["code"] = "ok"
 	c.Code = http.StatusOK
-
+	c.Session = SessionFrom(g)
 
 	c.Now = time.Now()
 
 	c.Set("_t", c.Now.Nanosecond())
+}
+
+// SessionFrom 은 요청의 Authorization: Bearer 토큰을 검증해 Session 을 만든다. 없거나 무효면 nil.
+func SessionFrom(g *fiber.Ctx) *Session {
+	header := g.Get(fiber.HeaderAuthorization)
+	if header == "" {
+		return nil
+	}
+	claims, err := jwt.Check(header)
+	if err != nil {
+		return nil
+	}
+	return &Session{Id: claims.Id, Email: claims.Email, Level: claims.Level}
 }
 
 func (c *Controller) Lock() {

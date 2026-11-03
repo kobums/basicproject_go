@@ -1,18 +1,17 @@
 package models
 
 import (
+	"database/sql"
 	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
+
 	"basicproject_go/global/config"
 	"basicproject_go/global/log"
 
-	"database/sql"
-	"time"
-
 	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/lib/pq"
 )
 
 type PagingType struct {
@@ -80,15 +79,48 @@ func Limit(limit int) LimitType {
 	return LimitType{Limit: limit}
 }
 
+// Connection 은 요청(컨트롤러) 하나가 쓰는 DB 핸들이다. Conn 은 프로세스 전체가 공유하는 풀(*sql.DB)이고,
+// 트랜잭션을 시작하면 Tx 로 실행한다. Close 는 트랜잭션만 정리하고 풀은 닫지 않는다.
 type Connection struct {
-	Conn *sql.DB
-    Tx    *sql.Tx    
+	Conn        *sql.DB
+	Tx          *sql.Tx
 	Transaction bool
-	Isolation bool
+	Isolation   bool
 }
 
+var (
+	poolOnce sync.Once
+	pool     *sql.DB
+	poolErr  error
+)
+
+// DB 는 공유 커넥션 풀을 돌려준다. 처음 부를 때 연다 (sql.Open 은 접속하지 않으므로 DB 가 없어도 서버는 뜬다).
+// 풀 크기는 config.Database.MaxOpenConns / MaxIdleConns / ConnMaxLifetime (DB_MAX_OPEN_CONNS ...) 이다.
+func DB() (*sql.DB, error) {
+	poolOnce.Do(func() {
+		pool, poolErr = sql.Open(config.Database.TypeString, config.Database.ConnectionString)
+		if poolErr != nil {
+			return
+		}
+		pool.SetMaxOpenConns(config.Database.MaxOpenConns)
+		pool.SetMaxIdleConns(config.Database.MaxIdleConns)
+		pool.SetConnMaxLifetime(config.Database.ConnMaxLifetime)
+	})
+	return pool, poolErr
+}
+
+// ClosePool 은 서버 종료 때 공유 풀을 닫는다.
+func ClosePool() {
+	if pool != nil {
+		pool.Close()
+	}
+}
+
+// Close 는 끝나지 않은 트랜잭션을 롤백한다. 공유 풀은 닫지 않는다.
 func (c *Connection) Close() {
-	c.Conn.Close()
+	if c.Transaction {
+		c.Rollback()
+	}
 }
 
 func (c *Connection) IsConnect() bool {
@@ -97,32 +129,41 @@ func (c *Connection) IsConnect() bool {
 
 func (c *Connection) Exec(query string, params ...interface{}) (sql.Result, error) {
 	if c.Transaction {
-       return c.Tx.Exec(query, params...)    
-	} else {
-       return c.Conn.Exec(query, params...)
-    }
+		return c.Tx.Exec(query, params...)
+	}
+	return c.Conn.Exec(query, params...)
 }
 
 func (c *Connection) Query(query string, params ...interface{}) (*sql.Rows, error) {
 	if c.Transaction {
-       return c.Tx.Query(query, params...)    
-	} else {
-       return c.Conn.Query(query, params...)
-    }
+		return c.Tx.Query(query, params...)
+	}
+	return c.Conn.Query(query, params...)
 }
 
-func (c *Connection) Begin() {
+// Begin 은 트랜잭션을 시작한다. 실패하면 에러를 돌려주고 트랜잭션 없이 남는다.
+func (c *Connection) Begin() error {
 	if c.Transaction {
-		return
+		return nil
 	}
 
-	c.Tx, _ = c.Conn.Begin()
+	tx, err := c.Conn.Begin()
+	if err != nil {
+		log.Error().Msg(err.Error())
+		return err
+	}
+	c.Tx = tx
 	c.Transaction = true
 	c.Isolation = true
+	return nil
 }
 
 func (c *Connection) Commit() error {
+	if !c.Transaction {
+		return nil
+	}
 	c.Transaction = false
+	c.Isolation = false
 	return c.Tx.Commit()
 }
 
@@ -136,76 +177,36 @@ func (c *Connection) Rollback() {
 		log.Error().Msg(err.Error())
 	}
 	c.Transaction = false
+	c.Isolation = false
 }
 
+// GetConnection 은 공유 풀을 쓰는 Connection 을 만든다. 풀을 열 수 없으면(드라이버 이름 오류 등) nil.
 func GetConnection() *Connection {
-	conn, err := sql.Open(config.Database.TypeString, config.Database.ConnectionString)
+	db, err := DB()
 	if err != nil {
 		log.Error().Msg(err.Error())
 		return nil
 	}
 
-	conn.SetMaxOpenConns(100)
-	conn.SetMaxIdleConns(10)
-	conn.SetConnMaxLifetime(5 * time.Minute)
-
-	return &Connection{
-		Conn: conn,
-		Tx: nil,
-		Transaction: false,
-	}
+	return &Connection{Conn: db}
 }
 
 func NewConnection() *Connection {
-	db := GetConnection()
-
-	if db != nil {
-		return db
-	}
-
-	time.Sleep(100 * time.Millisecond)
-
-	db = GetConnection()
-
-	if db != nil {
-		return db
-	}
-
-	time.Sleep(500 * time.Millisecond)
-
-	db = GetConnection()
-
-	if db != nil {
-		return db
-	}
-
-	time.Sleep(1 * time.Second)
-
-	db = GetConnection()
-
-	if db != nil {
-		return db
-	}
-
-	time.Sleep(2 * time.Second)
-
-	db = GetConnection()
-
-	return db
+	return GetConnection()
 }
 
 func QueryArray(db *Connection, query string, items []interface{}) (*sql.Rows, error) {
 	var rows *sql.Rows
 	var err error
 
-	rows, err = db.Conn.Query(query, items...)
+	rows, err = db.Query(query, items...)
 	return rows, err
 }
 
 func ExecArray(db *Connection, query string, items []interface{}) error {
 	var err error
 
-	_, err = db.Conn.Exec(query, items...)
+	_, err = db.Exec(query, items...)
 	return err
 }
 

@@ -5,6 +5,7 @@ package upload
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -26,9 +27,13 @@ var allowedExt = map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".gi
 // 저장 확장자를 클라이언트 파일명이 아닌 내용 기준으로 정해, 서빙 Content-Type 과 실제 내용이 일치하게 한다.
 var allowedType = map[string]string{"image/jpeg": ".jpg", "image/png": ".png", "image/gif": ".gif", "image/webp": ".webp"}
 
-// 이미지 업로드 최대 크기(5MB). 전역 BodyLimit(500MB)와 별개로 이미지에는 더 엄격한 상한을 둬
-// 대용량 반복 업로드로 인한 디스크 고갈(DoS)을 막는다.
-const maxImageSize = 5 << 20
+// MaxImageSize 는 업로드 이미지 최대 크기(5MB)다. 전역 BodyLimit(20MB, services/http.go)과 별개로
+// 이미지에는 더 엄격한 상한을 둬 대용량 반복 업로드로 인한 디스크 고갈(DoS)을 막는다.
+const MaxImageSize = 5 << 20
+
+// ErrInvalidImage 는 클라이언트가 보낸 파일이 허용된 이미지가 아닐 때의 에러다 (HTTP 400).
+// StoreImage 의 다른 에러(디렉터리 / 저장 실패)는 서버 에러다.
+var ErrInvalidImage = errors.New("invalid image")
 
 // Root 는 업로드 파일이 저장되는 실제 디렉터리.
 func Root() string {
@@ -45,7 +50,7 @@ func StoreImage(c *fiber.Ctx, field string) (string, error) {
 
 	ext, err := ValidateImage(file)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%w: %v", ErrInvalidImage, err)
 	}
 
 	dir := Root()
@@ -61,7 +66,7 @@ func StoreImage(c *fiber.Ctx, field string) (string, error) {
 }
 
 // ValidateImage 는 업로드 파일이 허용된 이미지인지 검사하고, 저장에 쓸 확장자를 돌려준다.
-//   - 크기 상한(maxImageSize)
+//   - 크기 상한(MaxImageSize)
 //   - 파일명 확장자 화이트리스트(allowedExt)
 //   - 실제 내용 시그니처(매직바이트) 검사 — 확장자·Content-Type 헤더는 위조 가능하므로
 //     폴리글랏/위장 페이로드(.html, .svg 등)가 이미지로 저장·서빙되는 것을 막는다.
@@ -71,7 +76,7 @@ func ValidateImage(file *multipart.FileHeader) (string, error) {
 	if file == nil {
 		return "", errors.New("파일이 없습니다.")
 	}
-	if file.Size > maxImageSize {
+	if file.Size > MaxImageSize {
 		return "", errors.New("이미지 크기는 5MB 이하여야 합니다.")
 	}
 
