@@ -1,0 +1,9 @@
+.git
+.claude
+.env
+.env.*
+!.env.example
+bin
+webdata
+dist
+*.log

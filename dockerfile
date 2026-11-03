@@ -1,36 +1,30 @@
-FROM --platform=linux/amd64 golang:1.25-alpine AS builder
+# 빌드: make docker (docker build -t basicproject_go .)
+# 설정 / 비밀값은 이미지에 넣지 않는다. 실행할 때 환경변수(--env-file .env, docker compose env_file)로 준다.
+FROM golang:1.26-alpine AS builder
 
-WORKDIR /app
+WORKDIR /src
 
-# Copy go mod files
 COPY go.mod go.sum ./
-
-# Download dependencies
 RUN go mod download
 
-# Copy source code
 COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/server .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o main .
+FROM alpine:3.22
 
-# Production stage
-FROM alpine:latest
+RUN apk --no-cache add ca-certificates tzdata \
+    && adduser -D -H -u 10001 app
 
-RUN apk --no-cache add ca-certificates
+WORKDIR /app
+COPY --from=builder /out/server ./server
+RUN mkdir -p webdata && chown app:app webdata
 
-WORKDIR /root/
+USER app
 
-# Copy the binary from builder
-COPY --from=builder /app/main .
+ENV APP_MODE=production \
+    PORT=8007
 
-# Copying .env.yml to the CURRENT working directory (/root/)
-COPY .env.yml .env.yml
+EXPOSE 8007
+VOLUME ["/app/webdata"]
 
-# Creating webdata directory in the CURRENT working directory
-RUN mkdir -p webdata
-
-
-ENV APP_MODE=production
-
-CMD ["./main"]
+CMD ["./server"]

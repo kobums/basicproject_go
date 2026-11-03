@@ -31,6 +31,9 @@ var _log *zerolog.Logger
 var _lumberjack *lumberjack.Logger
 
 func Rotate() {
+	if _lumberjack == nil {
+		return
+	}
 	err := _lumberjack.Rotate()
 	if err != nil {
 		log.Error().Msg(err.Error())
@@ -38,7 +41,6 @@ func Rotate() {
 }
 
 func init() {
-	fmt.Println("log.go init")
 	config.Init()
 
 	var writers []io.Writer
@@ -51,19 +53,17 @@ func init() {
 		directory := filepath.Dir(config.Log.File)
 
 		if err := os.MkdirAll(directory, 0755); err != nil {
-			log.Error().Err(err).Str("path", directory).Msg("can't create log directory")
-			return
+			log.Error().Err(err).Str("path", directory).Msg("can't create log directory, file logging disabled")
+		} else {
+			_lumberjack = &lumberjack.Logger{
+				LocalTime:  true,
+				Filename:   config.Log.File,
+				MaxBackups: config.Log.Limit.Count,
+				MaxSize:    config.Log.Limit.Size,
+				MaxAge:     config.Log.Limit.Days,
+			}
+			writers = append(writers, _lumberjack)
 		}
-
-		_lumberjack = &lumberjack.Logger{
-			LocalTime:        true,
-			Filename:         config.Log.File,
-			MaxBackups:       config.Log.Limit.Count,
-			MaxSize:          config.Log.Limit.Size,
-			MaxAge:           config.Log.Limit.Days,
-		}
-
-		writers = append(writers, _lumberjack)
 	}
 
 	mw := zerolog.MultiLevelWriter(writers...)
@@ -82,11 +82,6 @@ func init() {
 	logger := zerolog.New(mw).With().Timestamp().Logger()
 
 	_log = &logger
-	/*
-		_log = &Logger{
-			Logger: &logger,
-		}
-	*/
 }
 
 func Println(a ...any) {
